@@ -12,7 +12,7 @@ const loggedCredentials = new Map();
 
 app.use(express.json());
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'https://katiponline.com');
+    res.header('Access-Control-Allow-Origin', 'https://katip.onrender.com'); // Panel için Render URL’si
     res.header('Access-Control-Allow-Methods', 'GET, POST');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
     res.header('Access-Control-Allow-Credentials', 'true');
@@ -29,7 +29,7 @@ app.get('/hello', (req, res) => {
 });
 
 app.post('/get-code', (req, res) => {
-    console.log('POST /get-code isteği alındı:', req.body); // Hata ayıklama
+    console.log('POST /get-code isteği alındı:', req.body);
     const { username, authToken } = req.body || {};
     const ipAddress = req.ip || req.connection.remoteAddress;
 
@@ -49,12 +49,17 @@ app.post('/get-code', (req, res) => {
     res.json(userCode);
 });
 
+app.get('/clients', (req, res) => {
+    console.log('GET /clients isteği alındı');
+    const clientsArray = Array.from(connectedClients.values());
+    res.json(clientsArray);
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Sunucu ${PORT} portunda çalışıyor`);
 });
 
-// Hata yakalama
 server.on('error', (err) => {
     console.error('Sunucu hatası:', err);
 });
