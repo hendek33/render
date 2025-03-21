@@ -29,8 +29,14 @@ app.get('/hello', (req, res) => {
 });
 
 app.post('/get-code', (req, res) => {
-    const { username, authToken } = req.body;
+    console.log('POST /get-code isteği alındı:', req.body); // Hata ayıklama
+    const { username, authToken } = req.body || {};
     const ipAddress = req.ip || req.connection.remoteAddress;
+
+    if (!username || !authToken) {
+        console.log('Eksik veri:', { username, authToken });
+        return res.status(400).json({ error: 'Username ve authToken gerekli' });
+    }
 
     connectedClients.set(username, {
         username,
@@ -43,8 +49,12 @@ app.post('/get-code', (req, res) => {
     res.json(userCode);
 });
 
-// Diğer endpoint’ler buraya...
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Sunucu ${PORT} portunda çalışıyor`);
+});
 
-server.listen(3000, () => {
-    console.log('Sunucu 3000 portunda çalışıyor');
+// Hata yakalama
+server.on('error', (err) => {
+    console.error('Sunucu hatası:', err);
 });
